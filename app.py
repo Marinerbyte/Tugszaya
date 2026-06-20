@@ -148,9 +148,9 @@ class TugzyBot(discord.Client):
                 await message.reply("Blimey! The mystical communication crystal is acting up. Let's try again! 🌀⚓", mention_author=False)
 
 
-# डिस्कॉर्ड बोट के लिए इंटेंट्स सक्षम करें
+# डिस्कॉर्ड बोट के लिए डिफ़ॉल्ट इंटेंट्स (बिना मैसेज कंटेंट प्रिविलेज के)
+# इससे बोट बिना किसी एरर या रिजेक्शन के तुरंत कनेक्ट हो जाएगा
 intents = discord.Intents.default()
-intents.message_content = True
 
 # बोट का ऑब्जेक्ट बनाएं
 bot = TugzyBot(intents=intents)
@@ -159,7 +159,7 @@ bot = TugzyBot(intents=intents)
 # ==================== DISCORD LAUNCHER ====================
 def run_discord_bot():
     """डिस्कॉर्ड बोट को एक अलग बैकग्राउंड थ्रेड में चलाता है।"""
-    # Gunicorn को पूरी तरह लोड और पोर्ट बाइंड होने के लिए 5 सेकंड का समय दें
+    # Gunicorn को पूरी तरह लोड होने के लिए 5 सेकंड का समय दें
     time.sleep(5)
     logger.info("Launching Discord Bot background loop...")
     loop = asyncio.new_event_loop()
@@ -168,13 +168,13 @@ def run_discord_bot():
 
 
 # ==================== BACKGROUND THREAD START ====================
-# Gunicorn के इम्पोर्ट करते ही बोट का थ्रेड शुरू होगा, लेकिन 5 सेकंड रुककर कनेक्ट करेगा
+# बोट का थ्रेड शुरू करें
 bot_thread = threading.Thread(target=run_discord_bot, daemon=True)
 bot_thread.start()
 
 
 # ==================== LOCAL RUNNER BLOCK ====================
 if __name__ == '__main__':
-    # यह केवल लोकल टेस्टिंग (python app.py) के समय चलेगा, Render पर Gunicorn इसे इग्नोर करेगा
+    # यह केवल लोकल टेस्टिंग के समय चलेगा
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
