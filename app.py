@@ -159,6 +159,8 @@ bot = TugzyBot(intents=intents)
 # ==================== DISCORD LAUNCHER ====================
 def run_discord_bot():
     """डिस्कॉर्ड बोट को एक अलग बैकग्राउंड थ्रेड में चलाता है।"""
+    # Gunicorn को पूरी तरह लोड और पोर्ट बाइंड होने के लिए 5 सेकंड का समय दें
+    time.sleep(5)
     logger.info("Launching Discord Bot background loop...")
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
@@ -166,7 +168,7 @@ def run_discord_bot():
 
 
 # ==================== BACKGROUND THREAD START ====================
-# Gunicorn के इम्पोर्ट करते ही बोट का थ्रेड शुरू करने के लिए इसे मुख्य ब्लॉक से बाहर रखा गया है
+# Gunicorn के इम्पोर्ट करते ही बोट का थ्रेड शुरू होगा, लेकिन 5 सेकंड रुककर कनेक्ट करेगा
 bot_thread = threading.Thread(target=run_discord_bot, daemon=True)
 bot_thread.start()
 
