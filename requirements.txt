@@ -1,4 +1,5 @@
 discord.py>=2.3.2
 groq>=0.9.0
-aiohttp>=3.8.5
 python-dotenv>=1.0.0
+Flask>=3.0.0
+gunicorn>=21.2.0
