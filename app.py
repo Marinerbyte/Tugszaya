@@ -14,7 +14,7 @@ from groq import AsyncGroq
 # local development के लिए .env फ़ाइल लोड करें
 load_dotenv()
 
-# Logging सेटअप ताकि बोट के काम करने की स्थिति दिखती रहे
+# Logging सेटअप
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -62,20 +62,16 @@ def home():
 class TugzyBot(discord.Client):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # हर चैनल के लिए 10 संदेशों की मेमोरी
         self.memory: Dict[int, List[Dict[str, str]]] = defaultdict(list)
-        # स्पैम रोकने के लिए प्रत्येक यूजर का टाइमस्टैम्प
         self.cooldowns: Dict[int, float] = {}
-        self.cooldown_duration = 3.0  # 3 सेकंड का अंतराल
+        self.cooldown_duration = 3.0
 
     def add_to_memory(self, channel_id: int, role: str, content: str):
-        """चैनल मेमोरी में नया संदेश जोड़ता है और केवल पिछले 10 संदेश ही रखता है।"""
         self.memory[channel_id].append({"role": role, "content": content})
         if len(self.memory[channel_id]) > 10:
             self.memory[channel_id] = self.memory[channel_id][-10:]
 
     def check_cooldown(self, user_id: int) -> bool:
-        """यूजर के लिए कूलडाउन की जांच करता है।"""
         current_time = time.time()
         last_time = self.cooldowns.get(user_id, 0.0)
         if current_time - last_time < self.cooldown_duration:
@@ -84,7 +80,6 @@ class TugzyBot(discord.Client):
         return False
 
     def split_message(self, text: str, limit: int = 2000) -> List[str]:
-        """डिस्कॉर्ड की सीमा (2000 अक्षरों) के आधार पर संदेश को विभाजित करता है।"""
         chunks = []
         while len(text) > limit:
             split_idx = text.rfind("\n", 0, limit)
@@ -103,18 +98,15 @@ class TugzyBot(discord.Client):
         logger.info("Captain Tugzy is ready for the voyage!")
 
     async def on_message(self, message: discord.Message):
-        # बोट्स के संदेशों को अनदेखा करें
         if message.author.bot:
             return
 
         is_dm = message.guild is None
         is_mentioned = self.user in message.mentions
 
-        # केवल DMs में या चैटरूम में मेंशन होने पर ही प्रतिक्रिया दें
         if not (is_dm or is_mentioned):
             return
 
-        # स्पैम रोकने के लिए कूलडाउन जांचें
         if self.check_cooldown(message.author.id):
             try:
                 await message.add_reaction("⏳")
@@ -122,7 +114,6 @@ class TugzyBot(discord.Client):
                 pass
             return
 
-        # मेंशन को साफ करके केवल संदेश का टेक्स्ट रखें
         cleaned_content = message.content
         if is_mentioned:
             cleaned_content = cleaned_content.replace(f"<@!{self.user.id}>", "").replace(f"<@{self.user.id}>", "").strip()
@@ -133,14 +124,11 @@ class TugzyBot(discord.Client):
         channel_id = message.channel.id
         self.add_to_memory(channel_id, "user", cleaned_content)
 
-        # टाइपिंग इंडिकेटर दिखाएं
         async with message.channel.typing():
             try:
-                # इतिहास और सिस्टम प्रॉम्प्ट को मिलाएं
                 history = self.memory[channel_id]
                 messages = [{"role": "system", "content": SYSTEM_PROMPT}] + history
 
-                # Groq API से प्रतिक्रिया लें
                 chat_completion = await groq_client.chat.completions.create(
                     model="llama-3.1-8b-instant",
                     messages=messages,
@@ -151,7 +139,6 @@ class TugzyBot(discord.Client):
                 response_text = chat_completion.choices[0].message.content.strip()
                 self.add_to_memory(channel_id, "assistant", response_text)
 
-                # विभाजित करके भेजें
                 chunks = self.split_message(response_text)
                 for chunk in chunks:
                     await message.reply(chunk, mention_author=False)
@@ -175,16 +162,17 @@ def run_discord_bot():
     logger.info("Launching Discord Bot background loop...")
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    # bot.start() का उपयोग थ्रेडिंग के लिए सुरक्षित है
     loop.run_until_complete(bot.start(DISCORD_TOKEN))
 
 
-# ==================== RUNNER BLOCK ====================
-if __name__ == '__main__':
-    # 1. डिस्कॉर्ड बोट को थ्रेड में शुरू करें
-    bot_thread = threading.Thread(target=run_discord_bot, daemon=True)
-    bot_thread.start()
+# ==================== BACKGROUND THREAD START ====================
+# Gunicorn के इम्पोर्ट करते ही बोट का थ्रेड शुरू करने के लिए इसे मुख्य ब्लॉक से बाहर रखा गया है
+bot_thread = threading.Thread(target=run_discord_bot, daemon=True)
+bot_thread.start()
 
-    # 2. Flask सर्वर शुरू करें (Render को लाइव रखने के लिए)
+
+# ==================== LOCAL RUNNER BLOCK ====================
+if __name__ == '__main__':
+    # यह केवल लोकल टेस्टिंग (python app.py) के समय चलेगा, Render पर Gunicorn इसे इग्नोर करेगा
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
